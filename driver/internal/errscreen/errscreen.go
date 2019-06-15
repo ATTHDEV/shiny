@@ -3,12 +3,12 @@
 // license that can be found in the LICENSE file.
 
 // Package errscreen provides a stub Screen implementation.
-package errscreen // import "golang.org/x/exp/shiny/driver/internal/errscreen"
+package errscreen
 
 import (
 	"image"
 
-	"golang.org/x/exp/shiny/screen"
+	"github.com/ATTHDEV/shiny/screen"
 )
 
 // Stub returns a Screen whose methods all return the given error.
@@ -20,6 +20,6 @@ type stub struct {
 	err error
 }
 
-func (s stub) NewBuffer(size image.Point) (screen.Buffer, error)              { return nil, s.err }
-func (s stub) NewTexture(size image.Point) (screen.Texture, error)            { return nil, s.err }
-func (s stub) NewWindow(opts *screen.NewWindowOptions) (screen.Window, error) { return nil, s.err }
+func (s stub) NewBuffer(size image.Point) (screen.Buffer, error)           { return nil, s.err }
+func (s stub) NewTexture(size image.Point) (screen.Texture, error)         { return nil, s.err }
+func (s stub) NewWindow(opts *screen.WindowOptions) (screen.Window, error) { return nil, s.err }

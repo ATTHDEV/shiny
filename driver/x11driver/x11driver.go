@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Package x11driver provides the X11 driver for accessing a screen.
-package x11driver // import "golang.org/x/exp/shiny/driver/x11driver"
+package x11driver
 
 // TODO: figure out what to say about the responsibility for users of this
 // package to check any implicit dependencies' LICENSEs. For example, the
@@ -13,12 +13,13 @@ package x11driver // import "golang.org/x/exp/shiny/driver/x11driver"
 import (
 	"fmt"
 
-	"github.com/BurntSushi/xgb"
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/shm"
+	"github.com/BurntSushi/xgbutil"
+	"github.com/BurntSushi/xgbutil/xevent"
 
-	"golang.org/x/exp/shiny/driver/internal/errscreen"
-	"golang.org/x/exp/shiny/screen"
+	"github.com/ATTHDEV/shiny/driver/internal/errscreen"
+	"github.com/ATTHDEV/shiny/screen"
 )
 
 // Main is called by the program's main function to run the graphical
@@ -34,24 +35,26 @@ func Main(f func(screen.Screen)) {
 }
 
 func main(f func(screen.Screen)) (retErr error) {
-	xc, err := xgb.NewConn()
+	xutil, err := xgbutil.NewConn()
+
 	if err != nil {
 		return fmt.Errorf("x11driver: xgb.NewConn failed: %v", err)
 	}
 	defer func() {
 		if retErr != nil {
-			xc.Close()
+			xevent.Quit(xutil)
 		}
 	}()
 
-	if err := render.Init(xc); err != nil {
+	con := xutil.Conn()
+	if err := render.Init(con); err != nil {
 		return fmt.Errorf("x11driver: render.Init failed: %v", err)
 	}
-	if err := shm.Init(xc); err != nil {
+	if err := shm.Init(con); err != nil {
 		return fmt.Errorf("x11driver: shm.Init failed: %v", err)
 	}
 
-	s, err := newScreenImpl(xc)
+	s, err := newScreenImpl(xutil)
 	if err != nil {
 		return err
 	}

@@ -62,6 +62,15 @@ var (
 	procScreenToClient    = moduser32.NewProc("ScreenToClient")
 	procToUnicodeEx       = moduser32.NewProc("ToUnicodeEx")
 	procTranslateMessage  = moduser32.NewProc("TranslateMessage")
+	procSetWindowPos      = moduser32.NewProc("SetWindowPos")
+	procGetMonitorInfo    = moduser32.NewProc("GetMonitorInfoW")
+	procSetWindowLong     = moduser32.NewProc("SetWindowLongW")
+	procSetWindowLongPtr  = moduser32.NewProc("SetWindowLongW")
+	procGetWindowLong     = moduser32.NewProc("GetWindowLongW")
+	procGetWindowLongPtr  = moduser32.NewProc("GetWindowLongW")
+	procIsZoomed          = moduser32.NewProc("IsZoomed")
+	procMonitorFromWindow = moduser32.NewProc("MonitorFromWindow")
+	procHideCursor        = moduser32.NewProc("ShowCursor")
 	procUnregisterClassW  = moduser32.NewProc("UnregisterClassW")
 )
 
@@ -133,7 +142,7 @@ func _DispatchMessage(msg *_MSG) (ret int32) {
 	return
 }
 
-func _GetClientRect(hwnd syscall.Handle, rect *_RECT) (err error) {
+func GetClientRect(hwnd syscall.Handle, rect *RECT) (err error) {
 	r1, _, e1 := syscall.Syscall(procGetClientRect.Addr(), 2, uintptr(hwnd), uintptr(unsafe.Pointer(rect)), 0)
 	if r1 == 0 {
 		if e1 != 0 {
@@ -145,7 +154,7 @@ func _GetClientRect(hwnd syscall.Handle, rect *_RECT) (err error) {
 	return
 }
 
-func _GetWindowRect(hwnd syscall.Handle, rect *_RECT) (err error) {
+func _GetWindowRect(hwnd syscall.Handle, rect *RECT) (err error) {
 	r1, _, e1 := syscall.Syscall(procGetWindowRect.Addr(), 2, uintptr(hwnd), uintptr(unsafe.Pointer(rect)), 0)
 	if r1 == 0 {
 		if e1 != 0 {
@@ -220,7 +229,7 @@ func _LoadIcon(hInstance syscall.Handle, iconName uintptr) (icon syscall.Handle,
 	return
 }
 
-func _MoveWindow(hwnd syscall.Handle, x int32, y int32, w int32, h int32, repaint bool) (err error) {
+func MoveWindow(hwnd syscall.Handle, x, y, w, h int32, repaint bool) (err error) {
 	var _p0 uint32
 	if repaint {
 		_p0 = 1
@@ -290,4 +299,80 @@ func _UnregisterClass(lpClassName *uint16, hInstance syscall.Handle) (done bool)
 	r0, _, _ := syscall.Syscall(procUnregisterClassW.Addr(), 2, uintptr(unsafe.Pointer(lpClassName)), uintptr(hInstance), 0)
 	done = r0 != 0
 	return
+}
+
+func IsZoomed(hwnd syscall.Handle) bool {
+	ret, _, _ := procIsZoomed.Call(uintptr(hwnd))
+	return ret != 0
+}
+
+func BoolToBOOL(value bool) int32 {
+	if value {
+		return 1
+	}
+
+	return 0
+}
+
+// func HideCursor(hwnd syscall.Handle, hide bool) bool {
+// 	ret, _, _ := procHideCursor.Call(
+// 		uintptr(hwnd),
+// 		uintptr(0),
+// 	)
+// 	return ret != 0
+// }
+
+func GetWindowRect(hwnd syscall.Handle) *RECT {
+	var rect RECT
+	procGetWindowRect.Call(
+		uintptr(hwnd),
+		uintptr(unsafe.Pointer(&rect)))
+
+	return &rect
+}
+
+func GetWindowLong(hwnd syscall.Handle, index int) int32 {
+	ret, _, _ := procGetWindowLong.Call(
+		uintptr(hwnd),
+		uintptr(index))
+
+	return int32(ret)
+}
+
+func SetWindowLong(hwnd syscall.Handle, index int, value int32) int32 {
+	ret, _, _ := procSetWindowLong.Call(
+		uintptr(hwnd),
+		uintptr(index),
+		uintptr(value))
+
+	return int32(ret)
+}
+
+func SetWindowPos(hwnd, hWndInsertAfter syscall.Handle, x, y, cx, cy int32, uFlags uint) bool {
+	ret, _, _ := procSetWindowPos.Call(
+		uintptr(hwnd),
+		uintptr(hWndInsertAfter),
+		uintptr(x),
+		uintptr(y),
+		uintptr(cx),
+		uintptr(cy),
+		uintptr(uFlags))
+
+	return ret != 0
+}
+
+func GetMonitorInfo(hMonitor syscall.Handle, lmpi *MONITORINFO) bool {
+	ret, _, _ := procGetMonitorInfo.Call(
+		uintptr(hMonitor),
+		uintptr(unsafe.Pointer(lmpi)),
+	)
+	return ret != 0
+}
+
+func MonitorFromWindow(hwnd syscall.Handle, dwFlags uint32) syscall.Handle {
+	ret, _, _ := procMonitorFromWindow.Call(
+		uintptr(hwnd),
+		uintptr(dwFlags),
+	)
+	return syscall.Handle(ret)
 }

@@ -304,6 +304,14 @@ uintptr_t doNewWindow(int width, int height, char* title) {
 	return (uintptr_t)view;
 }
 
+void doToggleFullScreen(uintptr_t viewID){
+	ScreenGLView* view = (ScreenGLView*)viewID;
+	// dispatch_async(dispatch_get_main_queue(), ^{
+	// 	[view.window toggleFullScreen:view.window];
+	// });
+	[view.window toggleFullScreen:view.window];
+}
+
 void doShowWindow(uintptr_t viewID) {
 	ScreenGLView* view = (ScreenGLView*)viewID;
 	dispatch_async(dispatch_get_main_queue(), ^{

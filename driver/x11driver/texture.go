@@ -11,10 +11,10 @@ import (
 	"math"
 	"sync"
 
+	"github.com/ATTHDEV/shiny/screen"
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"
 
-	"golang.org/x/exp/shiny/screen"
 	"golang.org/x/image/math/f64"
 )
 

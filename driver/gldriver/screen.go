@@ -9,7 +9,7 @@ import (
 	"image"
 	"sync"
 
-	"golang.org/x/exp/shiny/screen"
+	"github.com/ATTHDEV/shiny/screen"
 	"golang.org/x/mobile/gl"
 )
 
@@ -108,7 +108,7 @@ func (s *screenImpl) NewTexture(size image.Point) (screen.Texture, error) {
 	return t, nil
 }
 
-func optsSize(opts *screen.NewWindowOptions) (width, height int) {
+func optsSize(opts *screen.WindowOptions) (width, height int) {
 	width, height = 1024, 768
 	if opts != nil {
 		if opts.Width > 0 {
@@ -121,7 +121,7 @@ func optsSize(opts *screen.NewWindowOptions) (width, height int) {
 	return width, height
 }
 
-func (s *screenImpl) NewWindow(opts *screen.NewWindowOptions) (screen.Window, error) {
+func (s *screenImpl) NewWindow(opts *screen.WindowOptions) (screen.Window, error) {
 	id, err := newWindow(opts)
 	if err != nil {
 		return nil, err

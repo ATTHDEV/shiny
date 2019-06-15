@@ -7,7 +7,7 @@
 // Package win32 implements a partial shiny screen driver using the Win32 API.
 // It provides window, lifecycle, key, and mouse management, but no drawing.
 // That is left to windriver (using GDI) or gldriver (using DirectX via ANGLE).
-package win32 // import "golang.org/x/exp/shiny/driver/internal/win32"
+package win32
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"golang.org/x/exp/shiny/screen"
+	"github.com/ATTHDEV/shiny/screen"
 	"golang.org/x/mobile/event/key"
 	"golang.org/x/mobile/event/lifecycle"
 	"golang.org/x/mobile/event/mouse"
@@ -47,6 +47,28 @@ type userWM struct {
 	id uint32
 }
 
+// http://msdn.microsoft.com/en-us/library/windows/desktop/dd162897.aspx
+// type _RECT struct {
+// 	Left, Top, Right, Bottom int32
+// }
+
+// http://msdn.microsoft.com/en-us/library/windows/desktop/dd145065.aspx
+type MONITORINFO struct {
+	CbSize    uint32
+	RcMonitor RECT
+	RcWork    RECT
+	DwFlags   uint32
+}
+
+// NewMonitorInfo sets the cbSize of a monitor info, so it can be used for
+// GetMonitorInfo.
+func NewMonitorInfo() MONITORINFO {
+	mi := MONITORINFO{}
+	// two uint32s, two rects of four uint32s
+	mi.CbSize = 4 + 4 + 16 + 16
+	return mi
+}
+
 func (m *userWM) next() uint32 {
 	m.Lock()
 	if m.id == 0 {
@@ -60,7 +82,7 @@ func (m *userWM) next() uint32 {
 
 var currentUserWM userWM
 
-func newWindow(opts *screen.NewWindowOptions) (syscall.Handle, error) {
+func newWindow(opts *screen.WindowOptions) (syscall.Handle, error) {
 	// TODO(brainman): convert windowClass to *uint16 once (in initWindowClass)
 	wcname, err := syscall.UTF16PtrFromString(windowClass)
 	if err != nil {
@@ -86,12 +108,12 @@ func newWindow(opts *screen.NewWindowOptions) (syscall.Handle, error) {
 }
 
 // ResizeClientRect makes hwnd client rectangle opts.Width by opts.Height in size.
-func ResizeClientRect(hwnd syscall.Handle, opts *screen.NewWindowOptions) error {
+func ResizeClientRect(hwnd syscall.Handle, opts *screen.WindowOptions) error {
 	if opts == nil || opts.Width <= 0 || opts.Height <= 0 {
 		return nil
 	}
-	var cr, wr _RECT
-	err := _GetClientRect(hwnd, &cr)
+	var cr, wr RECT
+	err := GetClientRect(hwnd, &cr)
 	if err != nil {
 		return err
 	}
@@ -101,7 +123,36 @@ func ResizeClientRect(hwnd syscall.Handle, opts *screen.NewWindowOptions) error 
 	}
 	w := (wr.Right - wr.Left) - (cr.Right - int32(opts.Width))
 	h := (wr.Bottom - wr.Top) - (cr.Bottom - int32(opts.Height))
-	return _MoveWindow(hwnd, wr.Left, wr.Top, w, h, false)
+	sx, sy := opts.GetLocation()
+	x := wr.Left
+	if sx >= 0 {
+		x = int32(sx)
+	}
+	y := wr.Top
+	if sy >= 0 {
+		y = int32(sy)
+	}
+	// opts.SetLocation(x, y)
+
+	return MoveWindow(hwnd, x, y, w, h, false)
+}
+
+func SetSize(hwnd syscall.Handle, width, height int32) error {
+
+	var cr, wr RECT
+	err := GetClientRect(hwnd, &cr)
+	if err != nil {
+		return err
+	}
+	err = _GetWindowRect(hwnd, &wr)
+	if err != nil {
+		return err
+	}
+	w := (wr.Right - wr.Left) - (cr.Right - width)
+	h := (wr.Bottom - wr.Top) - (cr.Bottom - height)
+
+	return MoveWindow(hwnd, wr.Left, wr.Top, w, h, false)
+
 }
 
 // Show shows a newly created window.
@@ -148,8 +199,8 @@ func sendSizeEvent(hwnd syscall.Handle, uMsg uint32, wParam, lParam uintptr) (lR
 }
 
 func sendSize(hwnd syscall.Handle) {
-	var r _RECT
-	if err := _GetClientRect(hwnd, &r); err != nil {
+	var r RECT
+	if err := GetClientRect(hwnd, &r); err != nil {
 		panic(err) // TODO(andlabs)
 	}
 
@@ -354,12 +405,12 @@ func windowWndProc(hwnd syscall.Handle, uMsg uint32, wParam uintptr, lParam uint
 }
 
 type newWindowParams struct {
-	opts *screen.NewWindowOptions
+	opts *screen.WindowOptions
 	w    syscall.Handle
 	err  error
 }
 
-func NewWindow(opts *screen.NewWindowOptions) (syscall.Handle, error) {
+func NewWindow(opts *screen.WindowOptions) (syscall.Handle, error) {
 	var p newWindowParams
 	p.opts = opts
 	SendScreenMessage(msgCreateWindow, 0, uintptr(unsafe.Pointer(&p)))
@@ -367,7 +418,6 @@ func NewWindow(opts *screen.NewWindowOptions) (syscall.Handle, error) {
 }
 
 const windowClass = "shiny_Window"
-const screenWindowClass = "shiny_ScreenWindow"
 
 func initWindowClass() (err error) {
 	wcname, err := syscall.UTF16PtrFromString(windowClass)
@@ -386,17 +436,8 @@ func initWindowClass() (err error) {
 	return err
 }
 
-func closeWindowClass() (err error) {
-	wcname, err := syscall.UTF16PtrFromString(windowClass)
-	if err != nil {
-		return err
-	}
-	_UnregisterClass(wcname, hThisInstance)
-
-	return nil
-}
-
 func initScreenWindow() (err error) {
+	const screenWindowClass = "shiny_ScreenWindow"
 	swc, err := syscall.UTF16PtrFromString(screenWindowClass)
 	if err != nil {
 		return err
@@ -426,20 +467,6 @@ func initScreenWindow() (err error) {
 	if err != nil {
 		return err
 	}
-	return nil
-}
-
-func closeScreenWindow() (err error) {
-	// first destroy window
-	_DestroyWindow(screenHWND)
-
-	// then unregister class
-	swc, err := syscall.UTF16PtrFromString(screenWindowClass)
-	if err != nil {
-		return err
-	}
-	_UnregisterClass(swc, hThisInstance)
-
 	return nil
 }
 
@@ -485,16 +512,13 @@ func Main(f func()) (retErr error) {
 	}
 	defer func() {
 		// TODO(andlabs): log an error if this fails?
-		closeScreenWindow()
+		_DestroyWindow(screenHWND)
+		// TODO(andlabs): unregister window class
 	}()
 
 	if err := initWindowClass(); err != nil {
 		return err
 	}
-	defer func() {
-		// TODO(andlabs): log an error if this fails?
-		closeWindowClass()
-	}()
 
 	// Prime the pump.
 	mainCallback = f

@@ -10,10 +10,10 @@ import (
 	"image/draw"
 	"sync"
 
-	"golang.org/x/exp/shiny/driver/internal/drawer"
-	"golang.org/x/exp/shiny/driver/internal/event"
-	"golang.org/x/exp/shiny/driver/internal/lifecycler"
-	"golang.org/x/exp/shiny/screen"
+	"github.com/ATTHDEV/shiny/driver/internal/drawer"
+	"github.com/ATTHDEV/shiny/driver/internal/event"
+	"github.com/ATTHDEV/shiny/driver/internal/lifecycler"
+	"github.com/ATTHDEV/shiny/screen"
 	"golang.org/x/image/math/f64"
 	"golang.org/x/mobile/event/lifecycle"
 	"golang.org/x/mobile/event/size"
@@ -386,4 +386,23 @@ func (w *windowImpl) Publish() screen.PublishResult {
 	}
 
 	return res
+}
+
+func (w *windowImpl) SetFullScreen(fullscreen bool) (err error) {
+	//toggleFullScreen(w)
+	return
+}
+
+func (w *windowImpl) MoveWindow(x, y, wd, ht int32) (err error) {
+	//moveWindow(w, x, y, wd, ht)
+	//moveWindow(w, x, y, wd, ht)
+	return
+}
+
+func (w *windowImpl) SetMaximize(maximize bool) (err error) {
+	return
+}
+
+func (w *windowImpl) SetDimention(wd, ht int32) (err error) {
+	return
 }

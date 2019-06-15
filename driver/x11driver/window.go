@@ -16,11 +16,12 @@ import (
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/xproto"
 
-	"golang.org/x/exp/shiny/driver/internal/drawer"
-	"golang.org/x/exp/shiny/driver/internal/event"
-	"golang.org/x/exp/shiny/driver/internal/lifecycler"
-	"golang.org/x/exp/shiny/driver/internal/x11key"
-	"golang.org/x/exp/shiny/screen"
+	"github.com/ATTHDEV/shiny/driver/internal/drawer"
+	"github.com/ATTHDEV/shiny/driver/internal/event"
+	"github.com/ATTHDEV/shiny/driver/internal/lifecycler"
+	"github.com/ATTHDEV/shiny/driver/internal/x11"
+	"github.com/ATTHDEV/shiny/driver/internal/x11key"
+	"github.com/ATTHDEV/shiny/screen"
 	"golang.org/x/image/math/f64"
 	"golang.org/x/mobile/event/key"
 	"golang.org/x/mobile/event/mouse"
@@ -41,12 +42,12 @@ type windowImpl struct {
 
 	// This next group of variables are mutable, but are only modified in the
 	// screenImpl.run goroutine.
-	width, height int
+	width, height uint32
 
 	lifecycler lifecycler.State
-
-	mu       sync.Mutex
-	released bool
+	x, y       uint32
+	mu         sync.Mutex
+	released   bool
 }
 
 func (w *windowImpl) Release() {
@@ -112,14 +113,14 @@ func (w *windowImpl) handleConfigureNotify(ev xproto.ConfigureNotifyEvent) {
 	w.lifecycler.SetVisible((int(ev.X)+int(ev.Width)) > 0 && (int(ev.Y)+int(ev.Height)) > 0)
 	w.lifecycler.SendEvent(w, nil)
 
-	newWidth, newHeight := int(ev.Width), int(ev.Height)
+	newWidth, newHeight := uint32(ev.Width), uint32(ev.Height)
 	if w.width == newWidth && w.height == newHeight {
 		return
 	}
 	w.width, w.height = newWidth, newHeight
 	w.Send(size.Event{
-		WidthPx:     newWidth,
-		HeightPx:    newHeight,
+		WidthPx:     int(newWidth),
+		HeightPx:    int(newHeight),
 		WidthPt:     geom.Pt(newWidth),
 		HeightPt:    geom.Pt(newHeight),
 		PixelsPerPt: w.s.pixelsPerPt,
@@ -167,4 +168,32 @@ func (w *windowImpl) handleMouse(x, y int16, b xproto.Button, state uint16, dir 
 		Modifiers: x11key.KeyModifiers(state),
 		Direction: dir,
 	})
+}
+
+func (w *windowImpl) MoveWindow(x, y, width, height int32) error {
+	newX, newY, newW, newH := x11.MoveWindow(w.s.xc, w.xw, int32(x), int32(y), int32(width), int32(height))
+	w.x = uint32(newX)
+	w.y = uint32(newY)
+	w.width = uint32(newW)
+	w.height = uint32(newH)
+	w.Send(size.Event{
+		WidthPx:     int(newW),
+		HeightPx:    int(newH),
+		WidthPt:     geom.Pt(newW),
+		HeightPt:    geom.Pt(newH),
+		PixelsPerPt: w.s.pixelsPerPt,
+	})
+	return nil
+}
+
+func (w *windowImpl) SetFullScreen(fullscreen bool) error {
+	return x11.SetFullScreen(w.s.XUtil, w.xw, fullscreen)
+}
+
+func (w *windowImpl) SetMaximize(maximize bool) (err error) {
+	return x11.SetMaximize(w.s.XUtil, w.xw, maximize)
+}
+
+func (w *windowImpl) SetDimention(width, height int32) (err error) {
+	return x11.SetSize(w.s.XUtil, w.xw, 200, 200)
 }

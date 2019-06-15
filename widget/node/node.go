@@ -44,9 +44,9 @@ package node // import "golang.org/x/exp/shiny/widget/node"
 import (
 	"image"
 
-	"golang.org/x/exp/shiny/gesture"
-	"golang.org/x/exp/shiny/screen"
-	"golang.org/x/exp/shiny/widget/theme"
+	"github.com/ATTHDEV/shiny/gesture"
+	"github.com/ATTHDEV/shiny/screen"
+	"github.com/ATTHDEV/shiny/widget/theme"
 	"golang.org/x/image/math/f64"
 	"golang.org/x/mobile/event/lifecycle"
 	"golang.org/x/mobile/event/mouse"

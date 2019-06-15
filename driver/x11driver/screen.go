@@ -16,9 +16,10 @@ import (
 	"github.com/BurntSushi/xgb/render"
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
+	"github.com/BurntSushi/xgbutil"
 
-	"golang.org/x/exp/shiny/driver/internal/x11key"
-	"golang.org/x/exp/shiny/screen"
+	"github.com/ATTHDEV/shiny/driver/internal/x11key"
+	"github.com/ATTHDEV/shiny/screen"
 	"golang.org/x/image/math/f64"
 	"golang.org/x/mobile/event/key"
 	"golang.org/x/mobile/event/mouse"
@@ -29,6 +30,7 @@ import (
 // it's not obvious how to interrupt it to service a NewWindow request.
 
 type screenImpl struct {
+	*xgbutil.XUtil
 	xc      *xgb.Conn
 	xsi     *xproto.ScreenInfo
 	keysyms x11key.KeysymTable
@@ -66,10 +68,12 @@ type screenImpl struct {
 	completionKeys  []uint16
 }
 
-func newScreenImpl(xc *xgb.Conn) (*screenImpl, error) {
+func newScreenImpl(xutil *xgbutil.XUtil) (*screenImpl, error) {
+	con := xutil.Conn()
 	s := &screenImpl{
-		xc:      xc,
-		xsi:     xproto.Setup(xc).DefaultScreen(xc),
+		XUtil:   xutil,
+		xc:      con,
+		xsi:     xproto.Setup(con).DefaultScreen(con),
 		buffers: map[shm.Seg]*bufferImpl{},
 		uploads: map[uint16]chan struct{}{},
 		windows: map[xproto.Window]*windowImpl{},
@@ -94,15 +98,15 @@ func newScreenImpl(xc *xgb.Conn) (*screenImpl, error) {
 	}
 
 	var err error
-	s.opaqueP, err = render.NewPictureId(xc)
+	s.opaqueP, err = render.NewPictureId(con)
 	if err != nil {
 		return nil, fmt.Errorf("x11driver: xproto.NewPictureId failed: %v", err)
 	}
-	s.uniformP, err = render.NewPictureId(xc)
+	s.uniformP, err = render.NewPictureId(con)
 	if err != nil {
 		return nil, fmt.Errorf("x11driver: xproto.NewPictureId failed: %v", err)
 	}
-	render.CreateSolidFill(s.xc, s.opaqueP, render.Color{
+	render.CreateSolidFill(con, s.opaqueP, render.Color{
 		Red:   0xffff,
 		Green: 0xffff,
 		Blue:  0xffff,
@@ -362,7 +366,7 @@ func (s *screenImpl) NewTexture(size image.Point) (screen.Texture, error) {
 	}, nil
 }
 
-func (s *screenImpl) NewWindow(opts *screen.NewWindowOptions) (screen.Window, error) {
+func (s *screenImpl) NewWindow(opts *screen.WindowOptions) (screen.Window, error) {
 	width, height := 1024, 768
 	if opts != nil {
 		if opts.Width > 0 {

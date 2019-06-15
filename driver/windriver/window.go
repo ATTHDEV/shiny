@@ -17,10 +17,10 @@ import (
 	"syscall"
 	"unsafe"
 
-	"golang.org/x/exp/shiny/driver/internal/drawer"
-	"golang.org/x/exp/shiny/driver/internal/event"
-	"golang.org/x/exp/shiny/driver/internal/win32"
-	"golang.org/x/exp/shiny/screen"
+	"github.com/ATTHDEV/shiny/driver/internal/drawer"
+	"github.com/ATTHDEV/shiny/driver/internal/event"
+	"github.com/ATTHDEV/shiny/driver/internal/win32"
+	"github.com/ATTHDEV/shiny/screen"
 	"golang.org/x/image/math/f64"
 	"golang.org/x/mobile/event/key"
 	"golang.org/x/mobile/event/lifecycle"
@@ -36,6 +36,14 @@ type windowImpl struct {
 
 	sz             size.Event
 	lifecycleStage lifecycle.Stage
+
+	// Todo: the windows api is confused about
+	// whether styles are int32 or uint32s.
+	style, exStyle int32
+
+	fullscreen bool
+	maximized  bool
+	windowRect *win32.RECT
 }
 
 func (w *windowImpl) Release() {
@@ -270,4 +278,85 @@ func handleCmd(hwnd syscall.Handle, uMsg uint32, wParam, lParam uintptr) {
 		c.err = fmt.Errorf("unknown command id=%d", c.id)
 	}
 	return
+}
+
+func (w *windowImpl) SetFullScreen(fullscreen bool) (err error) {
+	// Fullscreen impl copied from chromium
+	// https://src.chromium.org/viewvc/chrome/trunk/src/ui/views/win/fullscreen_handler.cc
+	// Save current window state if not already fullscreen.
+	if !w.fullscreen {
+		// Save current window information.  We force the window into restored mode
+		// before going fullscreen because Windows doesn't seem to hide the
+		// taskbar if the window is in the maximized state.
+		w.maximized = win32.IsZoomed(w.hwnd)
+		if w.maximized {
+			win32.SendMessage(w.hwnd, win32.WM_SYSCOMMAND, win32.SC_RESTORE, 0)
+		}
+		w.style = win32.GetWindowLong(w.hwnd, win32.GWL_STYLE)
+		w.exStyle = win32.GetWindowLong(w.hwnd, win32.GWL_EXSTYLE)
+		w.windowRect = win32.GetWindowRect(w.hwnd)
+	}
+
+	w.fullscreen = fullscreen
+
+	if w.fullscreen {
+		// Set new window style and size.
+		win32.SetWindowLong(w.hwnd, win32.GWL_STYLE,
+			w.style & ^(win32.WS_CAPTION|win32.WS_THICKFRAME))
+		win32.SetWindowLong(w.hwnd, win32.GWL_EXSTYLE,
+			w.exStyle&^(win32.WS_EX_DLGMODALFRAME|
+				win32.WS_EX_WINDOWEDGE|win32.WS_EX_CLIENTEDGE|win32.WS_EX_STATICEDGE))
+		// On expand, if we're given a window_rect, grow to it, otherwise do
+		// not resize.
+		// shiny cmt: Need to look into what this for_metro argument means,
+		// right now we don't use it
+		// if (!for_metro) {
+		monitorInfo := win32.NewMonitorInfo()
+		win32.GetMonitorInfo(win32.MonitorFromWindow(w.hwnd, win32.MONITOR_DEFAULTTONEAREST),
+			&monitorInfo)
+		windowRect := monitorInfo.RcMonitor
+		win32.SetWindowPos(w.hwnd, 0, windowRect.Left, windowRect.Top,
+			windowRect.Right-windowRect.Left, windowRect.Bottom-windowRect.Top,
+			win32.SWP_NOZORDER|win32.SWP_NOACTIVATE|win32.SWP_FRAMECHANGED)
+		// }
+	} else {
+		// Reset original window style and size.  The multiple window size/moves
+		// here are ugly, but if SetWindowPos() doesn't redraw, the taskbar won't be
+		// repainted.  Better-looking methods welcome.
+		win32.SetWindowLong(w.hwnd, win32.GWL_STYLE, w.style)
+		win32.SetWindowLong(w.hwnd, win32.GWL_EXSTYLE, w.exStyle)
+
+		// if !for_metro {
+		// On restore, resize to the previous saved rect size.
+		newRect := w.windowRect
+		win32.SetWindowPos(w.hwnd, 0, newRect.Left, newRect.Top,
+			newRect.Right-newRect.Left, newRect.Bottom-newRect.Top,
+			win32.SWP_NOZORDER|win32.SWP_NOACTIVATE|win32.SWP_FRAMECHANGED)
+		//}
+		if w.maximized {
+			win32.SendMessage(w.hwnd, win32.WM_SYSCOMMAND, win32.SC_MAXIMIZE, 0)
+		}
+	}
+
+	return
+}
+
+func (w *windowImpl) MoveWindow(x, y, wd, ht int32) error {
+	return win32.ResizeClientRect(w.hwnd, screen.NewWindowOptions(
+		screen.Dimensions(int(wd), int(ht)),
+		screen.Location(int(x), int(y)),
+	))
+}
+
+func (w *windowImpl) SetMaximize(maximize bool) (err error) {
+	if maximize {
+		win32.SendMessage(w.hwnd, win32.WM_SYSCOMMAND, win32.SC_MAXIMIZE, 0)
+	} else {
+		win32.SendMessage(w.hwnd, win32.WM_SYSCOMMAND, win32.SC_RESTORE, 0)
+	}
+	return
+}
+
+func (w *windowImpl) SetDimention(wd, ht int32) (err error) {
+	return win32.SetSize(w.hwnd, wd, ht)
 }

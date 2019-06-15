@@ -15,8 +15,8 @@
 //	package main
 //
 //	import (
-//		"golang.org/x/exp/shiny/driver"
-//		"golang.org/x/exp/shiny/screen"
+//		"github.com/ATTHDEV/shiny/driver"
+//		"github.com/ATTHDEV/shiny/screen"
 //		"golang.org/x/mobile/event/lifecycle"
 //	)
 //
@@ -52,7 +52,7 @@
 // implementation will generally work only with that driver's Buffer
 // implementation, and will not work with an arbitrary type that happens to
 // implement the Buffer methods.
-package screen // import "golang.org/x/exp/shiny/screen"
+package screen
 
 import (
 	"image"
@@ -77,7 +77,7 @@ type Screen interface {
 	// NewWindow returns a new Window for this screen.
 	//
 	// A nil opts is valid and means to use the default option values.
-	NewWindow(opts *NewWindowOptions) (Window, error)
+	NewWindow(opts *WindowOptions) (Window, error)
 }
 
 // TODO: rename Buffer to Image, to be less confusing with a Window's back and
@@ -217,6 +217,16 @@ type Window interface {
 	// Publish flushes any pending Upload and Draw calls to the window, and
 	// swaps the back buffer to the front.
 	Publish() PublishResult
+
+	MoveWindow(x, y, width, height int32) error
+
+	SetFullScreen(bool) error
+
+	SetMaximize(bool) error
+
+	SetDimention(int32, int32) error
+
+	// GetLocation() (int, int)
 }
 
 // PublishResult is the result of an Window.Publish call.
@@ -226,8 +236,8 @@ type PublishResult struct {
 	BackBufferPreserved bool
 }
 
-// NewWindowOptions are optional arguments to NewWindow.
-type NewWindowOptions struct {
+// WindowOptions are optional arguments to NewWindow.
+type WindowOptions struct {
 	// Width and Height specify the dimensions of the new window. If Width
 	// or Height are zero, a driver-dependent default will be used for each
 	// zero value dimension.
@@ -236,7 +246,47 @@ type NewWindowOptions struct {
 	// Title specifies the window title.
 	Title string
 
+	// X and Y determine the location the new window should be created at. If
+	// either are zero, a driver-dependant default will be used for each zero
+	// value. If Fullscreen is true, these values will be ignored.
+	x, y int32
+
 	// TODO: fullscreen, icon, cursorHidden?
+}
+
+func NewWindowOptions(opts ...func(*WindowOptions)) *WindowOptions {
+	wg := &WindowOptions{
+		x: -1, y: -1,
+		Width: 600, Height: 600,
+	}
+	for _, o := range opts {
+		o(wg)
+	}
+	return wg
+}
+
+func Title(s string) func(g *WindowOptions) {
+	return func(g *WindowOptions) {
+		g.Title = sanitizeUTF8(s, 4096)
+	}
+}
+
+func Dimensions(w, h int) func(g *WindowOptions) {
+	return func(g *WindowOptions) {
+		g.Width = w
+		g.Height = h
+	}
+}
+
+func Location(x, y int) func(g *WindowOptions) {
+	return func(g *WindowOptions) {
+		g.x = int32(x)
+		g.y = int32(y)
+	}
+}
+
+func (w *WindowOptions) GetLocation() (int, int) {
+	return int(w.x), int(w.y)
 }
 
 // GetTitle returns a sanitized form of o.Title. In particular, its length will
@@ -244,7 +294,7 @@ type NewWindowOptions struct {
 // and will not contain the NUL byte.
 //
 // o may be nil, in which case "" is returned.
-func (o *NewWindowOptions) GetTitle() string {
+func (o *WindowOptions) GetTitle() string {
 	if o == nil {
 		return ""
 	}

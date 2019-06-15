@@ -24,6 +24,7 @@ void makeCurrentContext(uintptr_t ctx);
 void flushContext(uintptr_t ctx);
 uintptr_t doNewWindow(int width, int height, char* title);
 void doShowWindow(uintptr_t id);
+void doToggleFullScreen(uintptr_t id);
 void doCloseWindow(uintptr_t id);
 uint64_t threadID();
 */
@@ -36,8 +37,8 @@ import (
 	"runtime"
 	"unsafe"
 
-	"golang.org/x/exp/shiny/driver/internal/lifecycler"
-	"golang.org/x/exp/shiny/screen"
+	"github.com/ATTHDEV/shiny/driver/internal/lifecycler"
+	"github.com/ATTHDEV/shiny/screen"
 	"golang.org/x/mobile/event/key"
 	"golang.org/x/mobile/event/mouse"
 	"golang.org/x/mobile/event/paint"
@@ -668,4 +669,8 @@ func cocoaKeyCode(vkcode uint16) key.Code {
 
 func surfaceCreate() error {
 	return errors.New("gldriver: surface creation not implemented on darwin")
+}
+
+func toggleFullScreen(w *windowImpl) {
+	C.doToggleFullScreen(C.uintptr_t(w.id))
 }

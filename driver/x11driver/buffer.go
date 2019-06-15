@@ -17,7 +17,7 @@ import (
 	"github.com/BurntSushi/xgb/shm"
 	"github.com/BurntSushi/xgb/xproto"
 
-	"golang.org/x/exp/shiny/driver/internal/swizzle"
+	"github.com/ATTHDEV/shiny/driver/internal/swizzle"
 )
 
 type bufferImpl struct {

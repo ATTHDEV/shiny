@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"unsafe"
 
-	"golang.org/x/exp/shiny/driver/internal/win32"
-	"golang.org/x/exp/shiny/screen"
+	"github.com/ATTHDEV/shiny/driver/internal/win32"
+	"github.com/ATTHDEV/shiny/screen"
 )
 
 var theScreen = &screenImpl{
@@ -61,7 +61,7 @@ func (*screenImpl) NewTexture(size image.Point) (screen.Texture, error) {
 	return newTexture(size)
 }
 
-func (s *screenImpl) NewWindow(opts *screen.NewWindowOptions) (screen.Window, error) {
+func (s *screenImpl) NewWindow(opts *screen.WindowOptions) (screen.Window, error) {
 	w := &windowImpl{}
 
 	var err error

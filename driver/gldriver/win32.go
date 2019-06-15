@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"unsafe"
 
-	"golang.org/x/exp/shiny/driver/internal/win32"
-	"golang.org/x/exp/shiny/screen"
+	"github.com/ATTHDEV/shiny/driver/internal/win32"
+	"github.com/ATTHDEV/shiny/screen"
 	"golang.org/x/mobile/event/key"
 	"golang.org/x/mobile/event/lifecycle"
 	"golang.org/x/mobile/event/mouse"
@@ -68,7 +68,7 @@ type ctxWin32 struct {
 	surface uintptr // EGLSurface
 }
 
-func newWindow(opts *screen.NewWindowOptions) (uintptr, error) {
+func newWindow(opts *screen.WindowOptions) (uintptr, error) {
 	w, err := win32.NewWindow(opts)
 	if err != nil {
 		return 0, err
